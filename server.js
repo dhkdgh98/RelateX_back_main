@@ -1,17 +1,25 @@
-require('dotenv').config();  // .env 파일을 로드
-const app = require('./app');  // app.js에서 app 객체를 가져옵니다.
-const connectDB = require('./config/db');  // db.js에서 connectDB 함수 가져오기
 
-// MongoDB 연결
+require ('dotenv').config(); // .env 파일 로드
+
+const express = require('express');
+const cors = require('cors');
+const connectDB = require('./config/db');
+const authRoutes = require('./api/auth');  // 라우터
+
+const app = express();
+
+// DB 연결
 connectDB();
 
-// 서버 포트 설정
+// 미들웨어
+app.use(cors());
+app.use(express.json());
+
+// 라우터 등록
+app.use('/api/auth', authRoutes);
+
+// 서버 시작 - 모든 IP에서 접근 가능하게 0.0.0.0으로 바인딩!
 const PORT = process.env.PORT || 5000;
-
-
-
-// 서버 시작
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
-
