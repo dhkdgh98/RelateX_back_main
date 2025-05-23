@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./api/auth');  // 라우터
+const homeRoutes = require('./api/home')
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use(express.json());
 
 // 라우터 등록
 app.use('/api/auth', authRoutes);
+app.use('/api/home', homeRoutes);
 
 // 서버 시작 - 모든 IP에서 접근 가능하게 0.0.0.0으로 바인딩!
 const PORT = process.env.PORT || 5000;
