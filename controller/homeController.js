@@ -24,6 +24,50 @@ const getTimeline = async (req, res) => {
   }
 };
 
+// ✨ 타임라인 기록 추가
+const postRecord = async (req, res) => {
+  const {
+    userId,
+    title,
+    content,
+    friend,
+    location,
+    emotion,
+    category,
+    recordType,
+    date,
+  } = req.body;
+
+  console.log('📝 기록 추가 요청!', req.body);
+
+  // 필수값 검사
+  if (!userId || !title || !content || !friend) {
+    return res.status(400).json({ message: 'userId, title, content, friend는 필수 항목입니다.' });
+  }
+
+  try {
+    const newRecord = new Timeline({
+      userId,
+      title,
+      content,
+      friend,
+      location: location || '',
+      emotion: emotion || '',
+      category: category || '',
+      recordType: recordType || '',
+      date: date ? new Date(date) : new Date(),
+    });
+
+    await newRecord.save();
+    console.log('✅ 기록 저장 성공!');
+    res.status(201).json({ message: '기록이 성공적으로 저장되었습니다.' });
+  } catch (err) {
+    console.error('❌ 기록 저장 실패:', err.message);
+    res.status(500).json({ message: '서버 오류로 인해 기록을 저장하지 못했습니다.' });
+  }
+};
+
 module.exports = {
   getTimeline,
+  postRecord,
 };
