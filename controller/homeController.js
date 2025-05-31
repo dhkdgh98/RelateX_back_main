@@ -105,8 +105,8 @@ router.post('/record', upload.array('images', 5), async (req, res) => {
     return res.status(400).json({ message: 'userId, title, content, friend는 필수 항목입니다.' });
   }
 
-  // 업로드된 파일들에서 저장 경로만 뽑기
-  const imageUrls = req.files.map(file => `/uploads/${file.filename}`);
+  // 업로드된 파일들에서 저장 경로만 뽑기 (파일이 없는 경우 빈 배열 사용)
+  const imageUrls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
 
   try {
     const newRecord = new Timeline({

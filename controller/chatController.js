@@ -1,6 +1,6 @@
 // 💬 Chat Controller
 const OpenAI = require('openai');
-const { ALLOWED_MESSAGE_TYPES, PROMPT_TEMPLATES } = require('../config/promptTemplates');
+const { ALLOWED_MESSAGE_TYPES, PROMPT_TEMPLATES, SUMMARY_PROMPT } = require('../config/promptTemplates');
 require('dotenv').config();
 
 // OpenAI 설정
@@ -123,12 +123,7 @@ const saveChat = async (req, res) => {
 
   try {
     // 대화 내용을 GPT에 전달하여 정리
-    const summaryPrompt = 
-      "다음 대화 내용을 주어진 형식에 맞게 정리해줘:\n\n" +
-      "1. 핵심 내용을 3-4문장으로 요약\n" +
-      "2. 주요 감정이나 느낀 점을 2-3가지로 정리\n" +
-      "3. 마지막으로 한 줄의 인사이트나 교훈 추가\n\n" +
-      "대화 내용:\n" + 
+    const summaryPrompt = SUMMARY_PROMPT.user + 
       messages.map(msg => `${msg.sender === 'user' ? '사용자' : '챗봇'}: ${msg.text}`).join('\n');
 
     const completion = await openai.chat.completions.create({
@@ -136,7 +131,7 @@ const saveChat = async (req, res) => {
       messages: [
         { 
           role: "system", 
-          content: "너는 대화 내용을 깔끔하게 정리하는 전문가야. 주어진 형식에 맞춰 핵심을 추출하고 정리해줘." 
+          content: SUMMARY_PROMPT.system
         },
         { role: "user", content: summaryPrompt }
       ],
