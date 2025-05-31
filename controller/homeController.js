@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const Timeline = require('../models/timeLine'); // 모델 경로 확인 필수~!
+const Timeline = require('../models/timeLine'); // 대소문자 수정
 
 const router = express.Router();
 
@@ -72,8 +72,10 @@ const getTimeline = async (req, res) => {
       const filteredImages = imagesBase64.filter(img => img !== null);
 
       // entry 객체에 imagesBase64 필드 추가해서 반환
+      const entryObject = entry.toObject();
       return {
-        ...entry.toObject(),
+        ...entryObject,
+        _id: entryObject._id.toString(), // MongoDB의 _id를 문자열로 변환
         imagesBase64: filteredImages,
       };
     }));
