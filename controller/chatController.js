@@ -1,5 +1,6 @@
 // 💬 Chat Controller
 const OpenAI = require('openai');
+const { ALLOWED_MESSAGE_TYPES, PROMPT_TEMPLATES } = require('../config/promptTemplates');
 require('dotenv').config();
 
 // OpenAI 설정
@@ -12,10 +13,10 @@ const chatHistories = new Map();
 
 // POST /chat
 const getBotReply = async (req, res) => {
-  const { userId, message } = req.body;
+  const { userId, message, messageType } = req.body;
 
   console.log('📩 [챗봇 메시지 요청] 도착!');
-  console.log('📋 받은 데이터:', { userId, message });
+  console.log('📋 받은 데이터:', { userId, message, messageType });
 
   // 유효성 검사
   if (!userId || !message) {
@@ -27,49 +28,48 @@ const getBotReply = async (req, res) => {
     });
   }
 
+  // messageType 유효성 검사
+  if (messageType && !ALLOWED_MESSAGE_TYPES.includes(messageType)) {
+    console.warn(`⚠ 잘못된 messageType: ${messageType}`);
+    return res.status(400).json({
+      success: false,
+      message: '유효하지 않은 메시지 타입입니다.',
+      data: null
+    });
+  }
+
   try {
     // 사용자별 대화 기록 초기화 또는 가져오기
     if (!chatHistories.has(userId)) {
       chatHistories.set(userId, []);
     }
     const userHistory = chatHistories.get(userId);
-
-    // 사용자 발화 저장
     userHistory.push({ role: "user", content: message });
+  
+    // messageType에 따른 프롬프트 선택
+    const basePrompt = PROMPT_TEMPLATES[messageType] || PROMPT_TEMPLATES.default;
 
-    // 베이스 프롬프트
-    const basePrompt = 
-      "너는 상담박사이자 경청하는 친구야. 사용자가 자신의 일이나 감정을 말하면 다음 기준에 따라 반응해줘. " +
-      "1. 고민이나 힘든 일 → 진심 어린 공감과 따뜻한 반응. " +
-      "2. 생각이 정리되지 않을 때 → 30자 이내의 간단한 질문으로 유도. " +
-      "3. 감정 표현이 적을 때 → 지금 감정을 직접 묻거나 감정 이름을 제시. " +
-      "4. 자책하거나 지쳐 있을 때 → 노력과 회복력에 대한 구체적 칭찬. " +
-      "5. 해결책을 요구할 때 → 직접 말하지 말고 제안형 표현으로 선택 유도. " +
-      "모든 말은 귀엽고 친근하게, 300자 이내로 작성해줘.";
-
-    // 최근 5턴(10 메시지)만 유지 (user+assistant)
-    const recentHistory = userHistory.slice(-10);
-
-    // 메시지 배열 구성 (system + 최근 대화)
+    // 최근 3턴(6 메시지)만 유지
+    const recentHistory = userHistory.slice(-6);
     const messages = [
       { role: "system", content: basePrompt },
-      ...recentHistory
+      ...recentHistory,
     ];
-
+  
     // GPT 호출
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: messages,
       temperature: 0.9,
     });
-
+  
     const reply = completion.choices[0].message.content.trim();
     console.log(`🤖 [챗봇 응답] user(${userId})에게: ${reply}`);
-
+  
     // GPT 답변 저장
     userHistory.push({ role: "assistant", content: reply });
-
-    res.status(200).json({ 
+  
+    res.status(200).json({
       success: true,
       message: '채팅 응답 성공',
       data: {
@@ -77,10 +77,16 @@ const getBotReply = async (req, res) => {
         timestamp: new Date().toISOString()
       }
     });
-
+  
   } catch (err) {
-    console.error('❌ [챗봇 응답 에러]', err.message);
-    res.status(500).json({ 
+    console.error('❌ [챗봇 응답 에러]', {
+      error: err.message,
+      stack: err.stack,
+      userId,
+      messageType
+    });
+    
+    res.status(500).json({
       success: false,
       message: '챗봇 응답 중 오류가 발생했어요 ㅠㅠ',
       data: null
@@ -88,6 +94,90 @@ const getBotReply = async (req, res) => {
   }
 };
 
+// POST /chat/save
+const saveChat = async (req, res) => {
+  const { userId, messages, messageType } = req.body;
+
+  console.log('📝 [채팅 기록 저장] 요청!');
+  console.log('📋 받은 데이터:', { userId, messageType, messageCount: messages.length });
+
+  // 유효성 검사
+  if (!userId || !messages || !messageType || !Array.isArray(messages)) {
+    console.warn('⚠ 필수 데이터 누락됨!');
+    return res.status(400).json({
+      success: false,
+      message: 'userId, messages(배열), messageType은 필수입니다.',
+      data: null
+    });
+  }
+
+  // messageType 유효성 검사
+  if (!ALLOWED_MESSAGE_TYPES.includes(messageType)) {
+    console.warn(`⚠ 잘못된 messageType: ${messageType}`);
+    return res.status(400).json({
+      success: false,
+      message: '유효하지 않은 메시지 타입입니다.',
+      data: null
+    });
+  }
+
+  try {
+    // 대화 내용을 GPT에 전달하여 정리
+    const summaryPrompt = 
+      "다음 대화 내용을 주어진 형식에 맞게 정리해줘:\n\n" +
+      "1. 핵심 내용을 3-4문장으로 요약\n" +
+      "2. 주요 감정이나 느낀 점을 2-3가지로 정리\n" +
+      "3. 마지막으로 한 줄의 인사이트나 교훈 추가\n\n" +
+      "대화 내용:\n" + 
+      messages.map(msg => `${msg.sender === 'user' ? '사용자' : '챗봇'}: ${msg.text}`).join('\n');
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { 
+          role: "system", 
+          content: "너는 대화 내용을 깔끔하게 정리하는 전문가야. 주어진 형식에 맞춰 핵심을 추출하고 정리해줘." 
+        },
+        { role: "user", content: summaryPrompt }
+      ],
+      temperature: 0.7,
+    });
+
+    const summary = completion.choices[0].message.content.trim();
+    console.log(`✅ [채팅 기록 저장] 성공! user(${userId})의 ${messageType} 기록 ${messages.length}개 메시지 저장됨`);
+    console.log('📝 정리된 내용:', summary);
+
+    // TODO: 여기에 실제 데이터베이스 저장 로직 구현
+    // 현재는 성공 응답만 반환
+
+    res.status(200).json({
+      success: true,
+      message: '채팅 기록 저장 성공',
+      data: {
+        timestamp: new Date().toISOString(),
+        messageCount: messages.length,
+        summary: summary
+      }
+    });
+
+  } catch (err) {
+    console.error('❌ [채팅 기록 저장 에러]', {
+      error: err.message,
+      stack: err.stack,
+      userId,
+      messageType,
+      messageCount: messages.length
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: '채팅 기록 저장 중 오류가 발생했어요 ㅠㅠ',
+      data: null
+    });
+  }
+};
+
 module.exports = {
   getBotReply,
+  saveChat,
 };
