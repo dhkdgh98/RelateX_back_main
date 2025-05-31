@@ -122,18 +122,26 @@ const saveChat = async (req, res) => {
   }
 
   try {
+    // messageType에 따른 프롬프트 선택
+    const basePrompt = PROMPT_TEMPLATES[messageType] || PROMPT_TEMPLATES.default;
+    const summaryPrompt = SUMMARY_PROMPT[messageType] || SUMMARY_PROMPT.default;
+
     // 대화 내용을 GPT에 전달하여 정리
-    const summaryPrompt = SUMMARY_PROMPT.user + 
-      messages.map(msg => `${msg.sender === 'user' ? '사용자' : '챗봇'}: ${msg.text}`).join('\n');
+    const formattedMessages = messages.map(msg => 
+      `${msg.sender === 'user' ? '사용자' : '챗봇'}: ${msg.text}`
+    ).join('\n');
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         { 
           role: "system", 
-          content: SUMMARY_PROMPT.system
+          content: summaryPrompt.system
         },
-        { role: "user", content: summaryPrompt }
+        { 
+          role: "user", 
+          content: summaryPrompt.user + formattedMessages
+        }
       ],
       temperature: 0.7,
     });
