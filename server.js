@@ -9,6 +9,7 @@ const homeRoutes = require('./api/home');
 const uploadRoutes = require('./api/upload'); // ✅ 업로드 라우터 추가
 const chatRoutes = require('./api/chat'); // 💬 채팅 라우터 추가
 const recordRoutes = require('./routes/record_routes');
+const friendRoutes = require('./routes/friend_routes');
 
 const app = express();
 
@@ -29,6 +30,8 @@ app.use('/api/home', homeRoutes);
 app.use('/api/upload', uploadRoutes); // ✅ 이미지 업로드 라우터
 app.use('/api/chat', chatRoutes); // 💬 채팅 라우터 등록
 app.use('/api/record', recordRoutes); // 기록 관련 라우터
+app.use('/api/options', recordRoutes);
+app.use('/api/friends', friendRoutes);
 
 // 🚀 서버 시작
 const PORT = process.env.PORT || 5000;

@@ -45,10 +45,10 @@ const getTimeline = async (req, res) => {
     // 각 타임라인 항목에 대해 imageUrls 배열의 이미지 파일들을 Base64로 인코딩해서 넣기
     const entriesWithImages = await Promise.all(entries.map(async (entry) => {
       // 이미지 파일들을 읽고 Base64 data URI로 변환
-      const imagesBase64 = await Promise.all(entry.imageUrls.map(async (url) => {
+      const imagesBase64 = await Promise.all((entry.imageUrls || []).map(async (url) => {
         try {
-          // URL에서 파일명만 추출
-          const fileName = url.split('/').pop();
+          // URL에서 파일명만 추출 (/uploads/ 제거)
+          const fileName = url.replace('/uploads/', '');
           // uploads 디렉토리 내의 파일 경로 생성
           const imagePath = path.join(__dirname, '..', 'uploads', fileName);
           console.log('이미지 파일 경로:', imagePath);
@@ -61,7 +61,8 @@ const getTimeline = async (req, res) => {
 
           const fileData = await fs.promises.readFile(imagePath);
           const ext = path.extname(imagePath).slice(1).toLowerCase(); // 확장자만 추출 (jpg, png 등)
-          return `data:image/${ext};base64,${fileData.toString('base64')}`;
+          const base64Data = fileData.toString('base64');
+          return `data:image/${ext};base64,${base64Data}`;
         } catch (err) {
           console.error('이미지 읽기 실패:', url, err.message);
           return null;
@@ -77,6 +78,7 @@ const getTimeline = async (req, res) => {
         ...entryObject,
         _id: entryObject._id.toString(), // MongoDB의 _id를 문자열로 변환
         imagesBase64: filteredImages,
+        imageUrls: entryObject.imageUrls || [], // imageUrls가 없는 경우 빈 배열 반환
       };
     }));
 

@@ -6,7 +6,10 @@ const recordOptionSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  friends: [String],
+  friends: {
+    type: [String],
+    default: []
+  },
   locations: [String],
   emotions: [String],
   categories: [String],
@@ -21,4 +24,14 @@ recordOptionSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('RecordOption', recordOptionSchema); 
+// 초기 데이터 설정
+const RecordOption = mongoose.model('RecordOption', recordOptionSchema);
+
+// 초기 데이터가 없으면 빈 배열로 생성
+RecordOption.findOne().then(option => {
+  if (!option) {
+    RecordOption.create({ friends: [] });
+  }
+});
+
+module.exports = RecordOption; 
